@@ -37,7 +37,11 @@ contract ConditionalTokens is ERC6909 {
     ) external {
         uint outcomeSlotCount = payouts.length;
         require(outcomeSlotCount > 1);
-        ConditionId conditionId = ConditionParams(msg.sender, questionId, outcomeSlotCount).id();
+        ConditionId conditionId = ConditionParams(
+            msg.sender, 
+            questionId, 
+            outcomeSlotCount)
+        .id();
         require(payoutNumerators [conditionId].length == outcomeSlotCount);
         require(payoutDenominator[conditionId]        == 0);
         uint den = 0;
