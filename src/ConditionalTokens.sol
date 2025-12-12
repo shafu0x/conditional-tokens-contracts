@@ -7,7 +7,8 @@ import {ConditionParamsLib} from "./libraries/ConditionParamsLib.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
 import {
     ConditionParams, 
-    ConditionId
+    ConditionId,
+    QuestionId
 } from "./interfaces/IConditionalTokens.sol";
 
 contract ConditionalTokens is ERC6909 {
@@ -22,7 +23,7 @@ contract ConditionalTokens is ERC6909 {
         ConditionId conditionId = params.id();
         require(payoutNumerators[conditionId].length == 0);
         payoutNumerators[conditionId] = new uint[](params.outcomeSlotCount);
-        emit EventsLib.ConditionPreparation(
+        emit EventsLib.Prepared(
             conditionId, 
             params.oracle, 
             params.questionId, 
@@ -30,5 +31,30 @@ contract ConditionalTokens is ERC6909 {
         );
     }
 
-    // function resolve(bytes32 )
+    function resolve(
+        QuestionId questionId, 
+        uint[]     calldata payouts
+    ) external {
+        uint outcomeSlotCount = payouts.length;
+        require(outcomeSlotCount > 1);
+        ConditionId conditionId = ConditionParams(msg.sender, questionId, outcomeSlotCount).id();
+        require(payoutNumerators [conditionId].length == outcomeSlotCount);
+        require(payoutDenominator[conditionId]        == 0);
+        uint den = 0;
+        for (uint i = 0; i < outcomeSlotCount; i++) {
+            uint num = payouts[i];
+            den += num;
+            require(payoutNumerators[conditionId][i] == 0);
+            payoutNumerators[conditionId][i] = num;
+        }
+        require(den > 0);
+        payoutDenominator[conditionId] = den;
+        emit EventsLib.Resolved(
+            conditionId,
+            msg.sender,
+            questionId,
+            outcomeSlotCount,
+            payoutNumerators[conditionId]
+        );
+    }
 }

@@ -7,10 +7,18 @@ import {
 } from "../interfaces/IConditionalTokens.sol";
 
 library EventsLib {
-    event ConditionPreparation(
+    event Prepared(
         ConditionId indexed conditionId,
         address     indexed oracle,
         QuestionId  indexed questionId,
         uint        outcomeSlotCount
+    );
+
+    event Resolved(
+        ConditionId indexed conditionId,
+        address     indexed oracle,
+        QuestionId  indexed questionId,
+        uint                outcomeSlotCount,
+        uint[]              payoutNumerators
     );
 }
