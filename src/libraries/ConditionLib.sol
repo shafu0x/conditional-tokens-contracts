@@ -6,7 +6,7 @@ import {
     ConditionId
 } from "../interfaces/IConditionalTokens.sol";
 
-library ConditionParamsLib {
+library ConditionLib {
     uint internal constant CONDITION_PARAMS_LENGTH = 2 * 32;
 
     function id(ConditionParams memory params) 

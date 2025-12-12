@@ -2,9 +2,11 @@
 pragma solidity 0.8.26;
 
 import {ERC6909} from "solmate/tokens/ERC6909.sol";
+import {IERC20}  from "forge-std/interfaces/IERC20.sol";
 
-import {ConditionParamsLib} from "./libraries/ConditionParamsLib.sol";
-import {EventsLib} from "./libraries/EventsLib.sol";
+import {ConditionLib} from "./libraries/ConditionLib.sol";
+import {PositionLib}  from "./libraries/PositionLib.sol";
+import {EventsLib}    from "./libraries/EventsLib.sol";
 import {
     ConditionParams, 
     ConditionId,
@@ -12,15 +14,15 @@ import {
 } from "./interfaces/IConditionalTokens.sol";
 
 contract ConditionalTokens is ERC6909 {
-    using ConditionParamsLib for ConditionParams;
+    using ConditionLib for ConditionParams;
 
     mapping(ConditionId => uint[]) public payoutNumerators;
     mapping(ConditionId => uint)   public payoutDenominator;
 
     function prepare(ConditionParams memory params) external {
-        require(params.outcomeSlotCount <= 256);
-        require(params.outcomeSlotCount  > 1);
         ConditionId conditionId = params.id();
+        require(params.outcomeSlotCount              <= 256);
+        require(params.outcomeSlotCount              >  1);
         require(payoutNumerators[conditionId].length == 0);
         payoutNumerators[conditionId] = new uint[](params.outcomeSlotCount);
         emit EventsLib.Prepared(
@@ -32,13 +34,13 @@ contract ConditionalTokens is ERC6909 {
     }
 
     function resolve(
-        QuestionId questionId, 
+        QuestionId          questionId, 
         uint[]     calldata payouts
     ) external {
         uint outcomeSlotCount = payouts.length;
         require(outcomeSlotCount > 1);
         ConditionId conditionId = ConditionParams(
-            msg.sender, 
+            msg.sender, // oracle is enforced to be the sender
             questionId, 
             outcomeSlotCount)
         .id();
@@ -60,5 +62,22 @@ contract ConditionalTokens is ERC6909 {
             outcomeSlotCount,
             payoutNumerators[conditionId]
         );
+    }
+
+    function split(
+        IERC20      collateralToken,
+        ConditionId conditionId,
+        uint        amount
+    ) external {
+        require(payoutNumerators[conditionId].length == 2);
+        require(collateralToken.transferFrom(
+                msg.sender, 
+                address(this), 
+                amount
+            )
+        );
+
+        _mint(msg.sender, PositionLib.id(collateralToken, conditionId), amount);
+        _mint(msg.sender, PositionLib.id(collateralToken, conditionId), amount);
     }
 }
