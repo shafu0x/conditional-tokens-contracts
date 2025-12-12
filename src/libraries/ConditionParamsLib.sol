@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {ConditionParams, Id} from "../interfaces/IConditionalTokens.sol";
+import {
+    ConditionParams, 
+    ConditionId
+} from "../interfaces/IConditionalTokens.sol";
 
 library ConditionParamsLib {
     uint internal constant CONDITION_PARAMS_LENGTH = 2 * 32;
@@ -9,10 +12,10 @@ library ConditionParamsLib {
     function id(ConditionParams memory params) 
         internal 
         pure 
-        returns (Id conditionParamsId) 
+        returns (ConditionId conditionId) 
     {
         assembly("memory-safe") {
-            conditionParamsId := keccak256(
+            conditionId := keccak256(
                 params,
                 CONDITION_PARAMS_LENGTH
             )
