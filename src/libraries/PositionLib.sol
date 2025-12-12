@@ -6,9 +6,27 @@ import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {ConditionId} from "../interfaces/IConditionalTokens.sol";
 
 library PositionLib {
-    function id(IERC20 collateralToken, ConditionId conditionId) internal pure returns (uint positionId) {
-        assembly("memory-safe") {
-            positionId := keccak256(collateralToken, conditionId)
-        }
+    function yesId(IERC20 collateralToken, ConditionId conditionId) internal pure returns (uint positionId) {
+        return uint256(
+            keccak256(
+                abi.encode(
+                    collateralToken, 
+                    conditionId, 
+                    true
+                )
+            )
+        );
+    }
+
+    function noId(IERC20 collateralToken, ConditionId conditionId) internal pure returns (uint positionId) {
+        return uint256(
+            keccak256(
+                abi.encode(
+                    collateralToken, 
+                    conditionId, 
+                    false
+                )
+            )
+        );
     }
 }

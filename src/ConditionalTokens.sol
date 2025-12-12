@@ -16,14 +16,14 @@ import {
 contract ConditionalTokens is ERC6909 {
     using ConditionLib for ConditionParams;
 
-    mapping(ConditionId => bool)   public prepared;
-    mapping(ConditionId => bool)   public resolved;
-    mapping(ConditionId => bool)   public yesWins;
+    mapping(ConditionId => bool) public prepared;
+    mapping(ConditionId => bool) public resolved;
+    mapping(ConditionId => bool) public yesWins;
 
     function prepare(ConditionParams memory params) external {
         ConditionId conditionId = params.id();
         require(!prepared[conditionId]);
-        prepared[conditionId] = true;
+        prepared       [conditionId] = true;
         emit EventsLib.Prepared(
             conditionId, 
             params.oracle, 
@@ -54,8 +54,8 @@ contract ConditionalTokens is ERC6909 {
     }
 
     function split(
-        IERC20      collateralToken,
         ConditionId conditionId,
+        IERC20      collateralToken,
         uint        amount
     ) external {
         require(prepared[conditionId]);
@@ -66,7 +66,34 @@ contract ConditionalTokens is ERC6909 {
             )
         );
 
-        _mint(msg.sender, PositionLib.id(collateralToken, conditionId), amount);
-        _mint(msg.sender, PositionLib.id(collateralToken, conditionId), amount);
+        _mint(msg.sender, PositionLib.yesId(collateralToken, conditionId), amount);
+        _mint(msg.sender, PositionLib.noId (collateralToken, conditionId), amount);
+
+        emit EventsLib.Split(
+            msg.sender,
+            conditionId,
+            collateralToken,
+            amount
+        );
+    }
+
+    function merge(
+        ConditionId conditionId,
+        IERC20      collateralToken,
+        uint        amount
+    ) external {
+        require(prepared[conditionId]);
+
+        _burn(msg.sender, PositionLib.yesId(collateralToken, conditionId), amount);
+        _burn(msg.sender, PositionLib.noId (collateralToken, conditionId), amount);
+
+        require(collateralToken.transfer(msg.sender, amount));
+
+        emit EventsLib.Merge(
+            msg.sender,
+            conditionId,
+            collateralToken,
+            amount
+        );
     }
 }
