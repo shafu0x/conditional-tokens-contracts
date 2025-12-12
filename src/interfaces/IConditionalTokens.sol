@@ -7,5 +7,4 @@ type QuestionId  is bytes32;
 struct ConditionParams {
     address    oracle;
     QuestionId questionId;
-    uint       outcomeSlotCount;
 }

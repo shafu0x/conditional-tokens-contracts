@@ -10,15 +10,13 @@ library EventsLib {
     event Prepared(
         ConditionId indexed conditionId,
         address     indexed oracle,
-        QuestionId  indexed questionId,
-        uint        outcomeSlotCount
+        QuestionId  indexed questionId
     );
 
     event Resolved(
         ConditionId indexed conditionId,
         address     indexed oracle,
         QuestionId  indexed questionId,
-        uint                outcomeSlotCount,
-        uint[]              payoutNumerators
+        bool                outcome
     );
 }

@@ -16,51 +16,40 @@ import {
 contract ConditionalTokens is ERC6909 {
     using ConditionLib for ConditionParams;
 
-    mapping(ConditionId => uint[]) public payoutNumerators;
-    mapping(ConditionId => uint)   public payoutDenominator;
+    mapping(ConditionId => bool)   public prepared;
+    mapping(ConditionId => bool)   public resolved;
+    mapping(ConditionId => bool)   public yesWins;
 
     function prepare(ConditionParams memory params) external {
         ConditionId conditionId = params.id();
-        require(params.outcomeSlotCount              <= 256);
-        require(params.outcomeSlotCount              >  1);
-        require(payoutNumerators[conditionId].length == 0);
-        payoutNumerators[conditionId] = new uint[](params.outcomeSlotCount);
+        require(!prepared[conditionId]);
+        prepared[conditionId] = true;
         emit EventsLib.Prepared(
             conditionId, 
             params.oracle, 
-            params.questionId, 
-            params.outcomeSlotCount
+            params.questionId
         );
     }
 
     function resolve(
-        QuestionId          questionId, 
-        uint[]     calldata payouts
+        QuestionId questionId, 
+        bool       outcome
     ) external {
-        uint outcomeSlotCount = payouts.length;
-        require(outcomeSlotCount > 1);
         ConditionId conditionId = ConditionParams(
-            msg.sender, // oracle is enforced to be the sender
-            questionId, 
-            outcomeSlotCount)
-        .id();
-        require(payoutNumerators [conditionId].length == outcomeSlotCount);
-        require(payoutDenominator[conditionId]        == 0);
-        uint den = 0;
-        for (uint i = 0; i < outcomeSlotCount; i++) {
-            uint num = payouts[i];
-            den += num;
-            require(payoutNumerators[conditionId][i] == 0);
-            payoutNumerators[conditionId][i] = num;
-        }
-        require(den > 0);
-        payoutDenominator[conditionId] = den;
+            msg.sender,
+            questionId
+        ).id();
+        require( prepared[conditionId]);
+        require(!resolved[conditionId]);
+
+        resolved[conditionId] = true;
+        yesWins [conditionId] = outcome;
+
         emit EventsLib.Resolved(
             conditionId,
             msg.sender,
             questionId,
-            outcomeSlotCount,
-            payoutNumerators[conditionId]
+            outcome
         );
     }
 
@@ -69,7 +58,7 @@ contract ConditionalTokens is ERC6909 {
         ConditionId conditionId,
         uint        amount
     ) external {
-        require(payoutNumerators[conditionId].length == 2);
+        require(prepared[conditionId]);
         require(collateralToken.transferFrom(
                 msg.sender, 
                 address(this), 
