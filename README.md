@@ -1,6 +1,6 @@
 # NOT AUDITED -> DO NOT USE IN PROD
 
-## Conditional Token
+## Conditional Tokens
 
 Split a collateral token into `Yes`/`No` Tokens.
 
