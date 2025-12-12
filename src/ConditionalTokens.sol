@@ -23,8 +23,8 @@ contract ConditionalTokens is ERC6909 {
     function prepare(ConditionParams memory params) external {
         ConditionId conditionId = params.id();
         require(!prepared[conditionId]);
-        prepared       [conditionId] = true;
-        emit EventsLib.Prepared(
+        prepared[conditionId] = true;
+        emit EventsLib.Prepare(
             conditionId, 
             params.oracle, 
             params.questionId
@@ -45,7 +45,7 @@ contract ConditionalTokens is ERC6909 {
         resolved[conditionId] = true;
         yesWins [conditionId] = outcome;
 
-        emit EventsLib.Resolved(
+        emit EventsLib.Resolve(
             conditionId,
             msg.sender,
             questionId,
@@ -90,6 +90,30 @@ contract ConditionalTokens is ERC6909 {
         require(collateralToken.transfer(msg.sender, amount));
 
         emit EventsLib.Merge(
+            msg.sender,
+            conditionId,
+            collateralToken,
+            amount
+        );
+    }
+
+    function redeem(
+        ConditionId conditionId,
+        IERC20      collateralToken,
+        uint        amount
+    ) external {
+        require(prepared[conditionId]);
+        require(resolved[conditionId]);
+
+        uint winningId = yesWins[conditionId]
+            ? PositionLib.yesId(collateralToken, conditionId)
+            : PositionLib.noId(collateralToken, conditionId);
+
+        _burn(msg.sender, winningId, amount);
+
+        require(collateralToken.transfer(msg.sender, amount));
+
+        emit EventsLib.Redeem(
             msg.sender,
             conditionId,
             collateralToken,

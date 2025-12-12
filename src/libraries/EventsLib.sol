@@ -9,13 +9,13 @@ import {
 } from "../interfaces/IConditionalTokens.sol";
 
 library EventsLib {
-    event Prepared(
+    event Prepare(
         ConditionId indexed conditionId,
         address     indexed oracle,
         QuestionId  indexed questionId
     );
 
-    event Resolved(
+    event Resolve(
         ConditionId indexed conditionId,
         address     indexed oracle,
         QuestionId  indexed questionId,
@@ -30,6 +30,13 @@ library EventsLib {
     );
 
     event Merge(
+        address     indexed stakeholder,
+        ConditionId indexed conditionId,
+        IERC20      indexed collateralToken,
+        uint                amount
+    );
+
+    event Redeem(
         address     indexed stakeholder,
         ConditionId indexed conditionId,
         IERC20      indexed collateralToken,
