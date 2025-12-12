@@ -12,7 +12,7 @@ library PositionLib {
                 abi.encode(
                     collateralToken, 
                     conditionId, 
-                    true
+                    "yes"
                 )
             )
         );
@@ -24,7 +24,7 @@ library PositionLib {
                 abi.encode(
                     collateralToken, 
                     conditionId, 
-                    false
+                    "no"
                 )
             )
         );
