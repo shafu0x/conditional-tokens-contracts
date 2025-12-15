@@ -35,6 +35,25 @@ contract LS_LMSR_MarketMaker is MarketMaker {
         return 0;
     }
 
+    function _costFunction(
+        int qYes,
+        int qNo,
+        int b
+    ) 
+        internal
+        pure 
+        returns (int)
+    {
+        int maxQ   = qYes > qNo ? qYes : qNo;
+        int offset = wadDiv(maxQ, b);
+
+        int expYes = wadExp(wadDiv(qYes, b) - offset);
+        int expNo  = wadExp(wadDiv(qNo,  b) - offset);
+
+        int sum = expYes + expNo;
+        return wadMul(b, wadLn(sum) + offset);
+    }
+
     function priceYes() 
         public 
         view 
@@ -60,5 +79,13 @@ contract LS_LMSR_MarketMaker is MarketMaker {
         int expNo  = wadExp(wadDiv(qNo,  b) - offset);
 
         return uint(wadDiv(expYes, expYes + expNo));
+    }
+
+    function priceNo()
+        public
+        view
+        returns (uint)
+    {
+        return 1e18 - priceYes();
     }
 }
