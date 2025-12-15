@@ -29,10 +29,22 @@ contract LS_LMSR_MarketMaker is MarketMaker {
         override 
         returns (int netCost) 
     {
-        // int b = int(alpha * funding / WAD);
-        // require(b > 0);
+        int b = int(alpha * funding / 1e18);
+        require(b > 0);
 
-        return 0;
+        int qYes = -int(conditionalTokens.balanceOf(
+            address(this),
+            PositionLib.yesId(collateralToken, conditionId)
+        ));
+        int qNo  = -int(conditionalTokens.balanceOf(
+            address(this),
+            PositionLib.noId(collateralToken, conditionId)
+        ));
+
+        int costBefore = _costFunction(qYes, qNo, b);
+        int costAfter  = _costFunction(qYes + yesAmount, qNo + noAmount, b);
+
+        return costAfter - costBefore;
     }
 
     function _costFunction(
