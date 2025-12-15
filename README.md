@@ -1,5 +1,9 @@
 # NOT AUDITED -> DO NOT USE IN PROD
 
+## LS-LMSR
+
+First open-source implementation that I'm aware of
+
 ## Conditional Tokens
 
 Split a collateral token into `Yes`/`No` Tokens.
