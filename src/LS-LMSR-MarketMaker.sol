@@ -1,20 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import {ERC6909} from "solmate/tokens/ERC6909.sol";
-import {Owned}   from "solmate/auth/Owned.sol";
-import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
+import {ERC6909}                       from "solmate/tokens/ERC6909.sol";
+import {Owned}                         from "solmate/auth/Owned.sol";
+import {SafeTransferLib}               from "solmate/utils/SafeTransferLib.sol";
 import {wadExp, wadLn, wadMul, wadDiv} from "solmate/utils/SignedWadMath.sol";
-import {ERC20} from "solmate/tokens/ERC20.sol";
+import {ERC20}                         from "solmate/tokens/ERC20.sol";
 
-/// @notice LS-LMSR-style MM (Option B):
 /// - Mints its own YES/NO IOU shares (ERC6909 ids 1 and 2)
 /// - Holds collateral in `bank`
 /// - After resolve(), winning shares redeem 1:1 for collateral from `bank`
-///
-/// Assumptions:
-/// - Collateral token uses 18 decimals (required for SignedWadMath WAD ops)
-/// - Share amounts are denominated in collateral base units (WAD)
 contract LS_LMSR_MarketMaker is ERC6909, Owned(msg.sender) {
     using SafeTransferLib for ERC20;
 
@@ -44,25 +39,21 @@ contract LS_LMSR_MarketMaker is ERC6909, Owned(msg.sender) {
     uint256 public alphaWad; // WAD multiplier
     uint256 public b0;       // must be > 0
 
-    event Resolved(bool yesWon);
-    event OracleUpdated(address oracle);
-    event ResolveAfterUpdated(uint64 resolveAfter);
-
     modifier onlyOracle() {
-        require(msg.sender == oracle, "not oracle");
+        require(msg.sender == oracle);
         _;
     }
 
     constructor(
-        ERC20  _collateral,
+        ERC20   _collateral,
         address _oracle,
         uint64  _resolveAfter,
         uint256 _alphaWad,
         uint256 _b0
     ) {
-        require(_b0 > 0, "b0=0");
-        require(_oracle != address(0), "oracle=0");
-        require(_collateral.decimals() == 18, "collateral !18d");
+        require(_b0 > 0);
+        require(_oracle != address(0));
+        require(_collateral.decimals() == 18);
 
         collateral   = _collateral;
         oracle       = _oracle;
@@ -76,25 +67,21 @@ contract LS_LMSR_MarketMaker is ERC6909, Owned(msg.sender) {
     // ─────────────────────────────────────────────────────────────
 
     function resolve(bool _yesWon) external onlyOracle {
-        require(!resolved, "already resolved");
-        if (resolveAfter != 0) require(block.timestamp >= resolveAfter, "too early");
+        require(!resolved);
+        if (resolveAfter != 0) require(block.timestamp >= resolveAfter);
 
         resolved = true;
         yesWon   = _yesWon;
 
-        emit Resolved(_yesWon);
     }
 
-    // Optional admin controls (still "simple", but useful)
     function setOracle(address _oracle) external onlyOwner {
-        require(_oracle != address(0), "oracle=0");
+        require(_oracle != address(0));
         oracle = _oracle;
-        emit OracleUpdated(_oracle);
     }
 
     function setResolveAfter(uint64 _resolveAfter) external onlyOwner {
         resolveAfter = _resolveAfter;
-        emit ResolveAfterUpdated(_resolveAfter);
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -102,17 +89,17 @@ contract LS_LMSR_MarketMaker is ERC6909, Owned(msg.sender) {
     // ─────────────────────────────────────────────────────────────
 
     function addFunding(uint256 amount) external onlyOwner {
-        require(amount > 0, "amount=0");
+        require(amount > 0);
         collateral.safeTransferFrom(msg.sender, address(this), amount);
         bank += amount;
     }
 
     /// @notice Conservative: only allow removing funding when unresolved and no open interest.
     function removeFunding(uint256 amount) external onlyOwner {
-        require(!resolved, "resolved");
-        require(qYes == 0 && qNo == 0, "open interest");
-        require(amount > 0, "amount=0");
-        require(amount <= bank, "insufficient bank");
+        require(!resolved);
+        require(qYes == 0 && qNo == 0);
+        require(amount > 0);
+        require(amount <= bank);
 
         bank -= amount;
         collateral.safeTransfer(msg.sender, amount);
@@ -123,14 +110,14 @@ contract LS_LMSR_MarketMaker is ERC6909, Owned(msg.sender) {
     // ─────────────────────────────────────────────────────────────
 
     function buyYes(uint256 amount, uint256 maxCost) external returns (uint256 cost) {
-        require(!resolved, "resolved");
-        require(amount > 0, "amount=0");
+        require(!resolved);
+        require(amount > 0);
 
         int256 netCost = calcNetCost(int256(amount), 0);
-        require(netCost > 0, "netCost<=0");
+        require(netCost > 0);
 
         cost = _addFee(uint256(netCost));
-        require(cost <= maxCost, "slippage");
+        require(cost <= maxCost);
 
         collateral.safeTransferFrom(msg.sender, address(this), cost);
 
@@ -141,14 +128,14 @@ contract LS_LMSR_MarketMaker is ERC6909, Owned(msg.sender) {
     }
 
     function buyNo(uint256 amount, uint256 maxCost) external returns (uint256 cost) {
-        require(!resolved, "resolved");
-        require(amount > 0, "amount=0");
+        require(!resolved);
+        require(amount > 0);
 
         int256 netCost = calcNetCost(0, int256(amount));
-        require(netCost > 0, "netCost<=0");
+        require(netCost > 0);
 
         cost = _addFee(uint256(netCost));
-        require(cost <= maxCost, "slippage");
+        require(cost <= maxCost);
 
         collateral.safeTransferFrom(msg.sender, address(this), cost);
 
@@ -159,17 +146,17 @@ contract LS_LMSR_MarketMaker is ERC6909, Owned(msg.sender) {
     }
 
     function sellYes(uint256 amount, uint256 minPayout) external returns (uint256 payout) {
-        require(!resolved, "resolved");
-        require(amount > 0, "amount=0");
+        require(!resolved);
+        require(amount > 0);
 
         int256 netCost = calcNetCost(-int256(amount), 0);
-        require(netCost < 0, "netCost>=0");
+        require(netCost < 0);
 
         uint256 gross = uint256(-netCost);
-        require(gross <= bank, "insufficient bank");
+        require(gross <= bank);
 
         payout = _subFee(gross);
-        require(payout >= minPayout, "slippage");
+        require(payout >= minPayout);
 
         _burn(msg.sender, YES_ID, amount);
 
@@ -180,17 +167,17 @@ contract LS_LMSR_MarketMaker is ERC6909, Owned(msg.sender) {
     }
 
     function sellNo(uint256 amount, uint256 minPayout) external returns (uint256 payout) {
-        require(!resolved, "resolved");
-        require(amount > 0, "amount=0");
+        require(!resolved);
+        require(amount > 0);
 
         int256 netCost = calcNetCost(0, -int256(amount));
-        require(netCost < 0, "netCost>=0");
+        require(netCost < 0);
 
         uint256 gross = uint256(-netCost);
-        require(gross <= bank, "insufficient bank");
+        require(gross <= bank);
 
         payout = _subFee(gross);
-        require(payout >= minPayout, "slippage");
+        require(payout >= minPayout);
 
         _burn(msg.sender, NO_ID, amount);
 
@@ -205,9 +192,9 @@ contract LS_LMSR_MarketMaker is ERC6909, Owned(msg.sender) {
     // ─────────────────────────────────────────────────────────────
 
     function redeem(uint256 amount) external returns (uint256 payout) {
-        require(resolved, "not resolved");
-        require(amount > 0, "amount=0");
-        require(amount <= bank, "insufficient bank");
+        require(resolved);
+        require(amount > 0);
+        require(amount <= bank);
 
         uint256 winId = yesWon ? YES_ID : NO_ID;
 
@@ -217,8 +204,8 @@ contract LS_LMSR_MarketMaker is ERC6909, Owned(msg.sender) {
         if (yesWon) qYes -= amount;
         else        qNo  -= amount;
 
-        bank -= amount;
-        payout = amount;
+        bank   -= amount;
+        payout  = amount;
 
         collateral.safeTransfer(msg.sender, payout);
     }
@@ -275,19 +262,19 @@ contract LS_LMSR_MarketMaker is ERC6909, Owned(msg.sender) {
     // ─────────────────────────────────────────────────────────────
 
     function setFee(uint256 _fee) external onlyOwner {
-        require(_fee <= 0.1e18, "fee>10%");
+        require(_fee <= 0.1e18);
         fee = _fee;
     }
 
     /// @notice Claim fees (kept out of `bank`) after resolution for safety.
     function claimFees() external onlyOwner {
-        require(resolved, "not resolved");
+        require(resolved);
         uint256 amount = accumulatedFees;
         accumulatedFees = 0;
 
         // Ensure we never dip into bank
         uint256 freeBal = collateral.balanceOf(address(this)) - bank;
-        require(amount <= freeBal, "fees exceed free");
+        require(amount <= freeBal);
 
         collateral.safeTransfer(owner, amount);
     }
