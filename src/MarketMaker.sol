@@ -17,6 +17,16 @@ abstract contract MarketMaker is Owned(msg.sender) {
     ConditionId       public conditionId;
     uint              public accumulatedFees;
 
+    constructor(
+        ConditionalTokens _conditionalTokens,
+        IERC20            _collateralToken,
+        ConditionId       _conditionId
+    ) {
+        conditionalTokens = _conditionalTokens;
+        collateralToken   = _collateralToken;
+        conditionId       = _conditionId;
+    }
+
     function addFunding(uint amount) 
         external 
         onlyOwner

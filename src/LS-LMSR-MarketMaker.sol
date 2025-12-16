@@ -7,13 +7,29 @@ import {
     wadMul,
     wadDiv
 } from "solmate/utils/SignedWadMath.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 import {PositionLib} from "./libraries/PositionLib.sol";
 import {MarketMaker} from "./MarketMaker.sol";
+import {ConditionalTokens} from "./ConditionalTokens.sol";
+import {ConditionId} from "./interfaces/IConditionalTokens.sol";
 
 contract LS_LMSR_MarketMaker is MarketMaker {
     // b = alpha * funding. Higher alpha more liquid market
     uint public alpha;
+
+    constructor(
+        uint              _alpha,
+        ConditionalTokens _conditionalTokens,
+        IERC20            _collateralToken,
+        ConditionId       _conditionId
+    ) MarketMaker(
+        _conditionalTokens, 
+        _collateralToken, 
+        _conditionId
+    ) {
+        alpha = _alpha;
+    }
 
     // Cost = b * ln(exp(yesAmount / b) + exp(noAmount / b))
     // NetCost = Cost(after) - Cost(before)
