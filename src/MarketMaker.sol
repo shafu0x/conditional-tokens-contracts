@@ -8,15 +8,16 @@ import {PositionLib}       from "./libraries/PositionLib.sol";
 import {ConditionalTokens} from "./ConditionalTokens.sol";
 import {ConditionId}       from "./interfaces/IConditionalTokens.sol";
 
+// TODO: function to seed
 abstract contract MarketMaker is Owned(msg.sender) {
     ConditionalTokens public conditionalTokens;
     IERC20            public collateralToken;
     uint              public fee;
-    uint              public funding;
     ConditionId       public conditionId;
     uint              public accumulatedFees;
     int               public qYes;
     int               public qNo;
+    uint              public bank;
 
     constructor(
         ConditionalTokens _conditionalTokens,
@@ -36,7 +37,7 @@ abstract contract MarketMaker is Owned(msg.sender) {
         collateralToken.transferFrom(msg.sender, address(this), amount);
         collateralToken.approve(address(conditionalTokens), amount);
         conditionalTokens.split(conditionId, collateralToken, amount);
-        funding += amount;
+        bank += amount;
     }
 
     function removeFunding(uint amount) 
@@ -44,10 +45,10 @@ abstract contract MarketMaker is Owned(msg.sender) {
         onlyOwner
     {
         require(amount > 0);
-        require(amount <= funding);
+        require(amount <= bank);
         
         conditionalTokens.merge(conditionId, collateralToken, amount);
-        funding -= amount;
+        bank -= amount;
         collateralToken.transfer(msg.sender, amount);
     }
 
@@ -73,6 +74,7 @@ abstract contract MarketMaker is Owned(msg.sender) {
             PositionLib.yesId(collateralToken, conditionId),
             amount
         );
+        bank += uint(netCost);
     }
 
     function buyNo(
@@ -97,6 +99,7 @@ abstract contract MarketMaker is Owned(msg.sender) {
             PositionLib.noId(collateralToken, conditionId),
             amount
         );
+        bank += uint(netCost);
     }
 
     function sellYes(
@@ -121,6 +124,7 @@ abstract contract MarketMaker is Owned(msg.sender) {
         );
         conditionalTokens.merge(conditionId, collateralToken, uint(-netCost));
         collateralToken.transfer(msg.sender, payout);
+        bank -= uint(-netCost);
     }
 
     function sellNo(
@@ -145,6 +149,7 @@ abstract contract MarketMaker is Owned(msg.sender) {
         );
         conditionalTokens.merge(conditionId, collateralToken, uint(-netCost));
         collateralToken.transfer(msg.sender, payout);
+        bank -= uint(-netCost);
     }
 
     function setFee(uint _fee) 
