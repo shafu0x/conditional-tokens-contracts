@@ -12,9 +12,6 @@ import {PositionLib} from "./libraries/PositionLib.sol";
 import {MarketMaker} from "./MarketMaker.sol";
 
 contract LS_LMSR_MarketMaker is MarketMaker {
-
-    int constant WAD = 1e18;
-
     // b = alpha * funding. Higher alpha more liquid market
     uint public alpha;
 

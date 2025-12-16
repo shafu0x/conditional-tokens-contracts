@@ -58,102 +58,104 @@ abstract contract MarketMaker is Owned(msg.sender) {
         }
     } 
 
-    function trade(
-        int yesAmount,
-        int noAmount,
-        int collateralLimit
+    function buyYes(
+        uint amount,
+        uint maxCost
     )
-        public
-        returns (int netCost)
+        external 
+        returns (uint cost) 
     {
-        int outcomeTokenNetCost = calcNetCost(yesAmount, noAmount);
-
-        // TODO: use lib
-        uint absCost = outcomeTokenNetCost >= 0 
-            ? uint(outcomeTokenNetCost)
-            : uint(-outcomeTokenNetCost);
-
-        // TODO: use lib
-        int fees = int(absCost * fee / 1e18);
-
-        netCost = outcomeTokenNetCost + fees;
-
-        // slippage check
-        require(
-            collateralLimit == 0 || netCost <= int(collateralLimit)
+        int netCost = calcNetCost(int(amount), 0);
+        require(netCost > 0);
+        cost = _addFee(uint(netCost));
+        require(cost <= maxCost);
+        collateralToken.transferFrom(msg.sender, address(this), cost);
+        collateralToken.approve(address(conditionalTokens), uint(netCost));
+        conditionalTokens.split(conditionId, collateralToken, uint(netCost));
+        conditionalTokens.transfer(
+            msg.sender,
+            PositionLib.yesId(collateralToken, conditionId),
+            uint(amount)
         );
+    }
 
-        uint yesPositionId = PositionLib.yesId(collateralToken, conditionId);
-        uint noPositionId  = PositionLib.noId (collateralToken, conditionId);
+    function buyNo(
+        uint amount,
+        uint maxCost
+    )
+        external
+        returns (uint cost)
+    {
+        int netCost = calcNetCost(0, int(amount));
+        require(netCost > 0);
+        cost = _addFee(uint(netCost));
+        require(cost <= maxCost);
+        collateralToken.transferFrom(msg.sender, address(this), cost);
+        collateralToken.approve(address(conditionalTokens), uint(netCost));
+        conditionalTokens.split(conditionId, collateralToken, uint(netCost));
+        conditionalTokens.transfer(
+            msg.sender,
+            PositionLib.noId(collateralToken, conditionId),
+            uint(amount)
+        );
+    }
 
-        // If buying, pull collateral and split
-        if (outcomeTokenNetCost > 0) {
-            require(
-                collateralToken.transferFrom(
-                    msg.sender,
-                    address(this),
-                    uint(outcomeTokenNetCost)
-                )
-            );
-            collateralToken.approve(
-                address(conditionalTokens),
-                uint   (outcomeTokenNetCost)
-            );
-            conditionalTokens.split(
-                conditionId,
-                collateralToken,
-                uint(outcomeTokenNetCost)
-            );
-        }
+    function sellYes(
+        uint amount,
+        uint minPayout
+    )
+        external
+        returns (uint payout)
+    {
+        int netCost = calcNetCost(-int(amount), 0);
+        require(netCost < 0);
+        payout = _subFee(uint(-netCost));
+        require(payout >= minPayout);
+        conditionalTokens.transferFrom(
+            msg.sender,
+            address(this), 
+            PositionLib.yesId(collateralToken, conditionId), 
+            uint(amount)
+        );
+        conditionalTokens.merge(conditionId, collateralToken, uint(-netCost));
+        collateralToken.transfer(msg.sender, payout);
+    }
 
-        if (yesAmount < 0 ) {
-            conditionalTokens.transferFrom(
-                msg.sender,
-                address(this),
-                yesPositionId,
-                uint(-yesAmount)
-            );
-        }
-        if (noAmount < 0) {
-            conditionalTokens.transferFrom(
-                msg.sender,
-                address(this),
-                noPositionId,
-                uint(-noAmount)
-            );
-        }
+    function sellNo(
+        uint amount, 
+        uint minPayout
+    ) 
+        external 
+        returns (uint payout) 
+    {
+        int netCost = calcNetCost(0, -int(amount));
+        require(netCost < 0);
+        payout = _subFee(uint(-netCost));
+        require(payout >= minPayout);
+        conditionalTokens.transferFrom(
+            msg.sender, 
+            address(this), 
+            PositionLib.noId(collateralToken, conditionId), 
+            amount
+        );
+        conditionalTokens.merge(conditionId, collateralToken, uint(-netCost));
+        collateralToken.transfer(msg.sender, payout);
+    }
 
-        if (outcomeTokenNetCost < 0) {
-            conditionalTokens.merge(
-                conditionId,
-                collateralToken,
-                uint(-outcomeTokenNetCost)
-            );
-        }
+    function _addFee(uint amount)
+        internal
+        view 
+        returns (uint)
+    {
+        return amount + (amount * fee / 1e18);
+    }
 
-        if (yesAmount > 0) {
-            conditionalTokens.transfer(
-                msg.sender,
-                yesPositionId,
-                uint(yesAmount)
-            );
-        }
-        if (noAmount > 0) {
-            conditionalTokens.transfer(
-                msg.sender,
-                noPositionId,
-                uint(noAmount)
-            );
-        }
-
-        if (netCost < 0) {
-            require(
-                collateralToken.transfer(
-                    msg.sender,
-                    uint(-netCost)
-                )
-            );
-        }
+    function _subFee(uint amount)
+        internal
+        view 
+        returns (uint)
+    {
+        return amount - (amount * fee / 1e18);
     }
 
     function calcNetCost(int yesAmount, int noAmount) public virtual returns (int netCost);
