@@ -15,6 +15,7 @@ abstract contract MarketMaker is Owned(msg.sender) {
     uint              public fee;
     uint              public funding;
     ConditionId       public conditionId;
+    uint              public accumulatedFees;
 
     function addFunding(uint amount) 
         external 
@@ -47,7 +48,7 @@ abstract contract MarketMaker is Owned(msg.sender) {
     {
         int netCost = calcNetCost(int(amount), 0);
         require(netCost > 0);
-        cost = _addFee(uint(netCost));
+        cost = _addFee(uint(netCost)); // when buying you pay more
         require(cost <= maxCost);
         collateralToken.transferFrom(msg.sender, address(this), cost);
         collateralToken.approve(address(conditionalTokens), uint(netCost));
@@ -68,7 +69,7 @@ abstract contract MarketMaker is Owned(msg.sender) {
     {
         int netCost = calcNetCost(0, int(amount));
         require(netCost > 0);
-        cost = _addFee(uint(netCost));
+        cost = _addFee(uint(netCost)); // when selling you receive less
         require(cost <= maxCost);
         collateralToken.transferFrom(msg.sender, address(this), cost);
         collateralToken.approve(address(conditionalTokens), uint(netCost));
@@ -122,20 +123,31 @@ abstract contract MarketMaker is Owned(msg.sender) {
         collateralToken.transfer(msg.sender, payout);
     }
 
+    function claimFees()
+        external
+        onlyOwner
+    {
+        uint amount = accumulatedFees;
+        accumulatedFees = 0;
+        collateralToken.transfer(owner, amount);
+    }
+
     function _addFee(uint amount)
         internal
-        view 
         returns (uint)
     {
-        return amount + (amount * fee / 1e18);
+        uint feeAmount = amount * fee / 1e18;
+        accumulatedFees += feeAmount;
+        return amount + feeAmount;
     }
 
     function _subFee(uint amount)
         internal
-        view 
         returns (uint)
     {
-        return amount - (amount * fee / 1e18);
+        uint feeAmount = amount * fee / 1e18;
+        accumulatedFees += feeAmount;
+        return amount - feeAmount;
     }
 
     function calcNetCost(int yesAmount, int noAmount) public virtual returns (int netCost);
