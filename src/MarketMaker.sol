@@ -7,7 +7,6 @@ import {Owned}  from "solmate/auth/Owned.sol";
 import {PositionLib}       from "./libraries/PositionLib.sol";
 import {ConditionalTokens} from "./ConditionalTokens.sol";
 import {ConditionId}       from "./interfaces/IConditionalTokens.sol";
-import { Stage }           from "./interfaces/IMarketMaker.sol";
 
 abstract contract MarketMaker is Owned(msg.sender) {
     ConditionalTokens public conditionalTokens;
@@ -16,6 +15,8 @@ abstract contract MarketMaker is Owned(msg.sender) {
     uint              public funding;
     ConditionId       public conditionId;
     uint              public accumulatedFees;
+    int               public qYes;
+    int               public qNo;
 
     constructor(
         ConditionalTokens _conditionalTokens,
@@ -58,15 +59,18 @@ abstract contract MarketMaker is Owned(msg.sender) {
     {
         int netCost = calcNetCost(int(amount), 0);
         require(netCost > 0);
-        cost = _addFee(uint(netCost)); // when buying you pay more
+        cost = _addFee(uint(netCost));
         require(cost <= maxCost);
+        
+        qYes += int(amount);
+        
         collateralToken.transferFrom(msg.sender, address(this), cost);
         collateralToken.approve(address(conditionalTokens), uint(netCost));
         conditionalTokens.split(conditionId, collateralToken, uint(netCost));
         conditionalTokens.transfer(
             msg.sender,
             PositionLib.yesId(collateralToken, conditionId),
-            uint(amount)
+            amount
         );
     }
 
@@ -79,15 +83,18 @@ abstract contract MarketMaker is Owned(msg.sender) {
     {
         int netCost = calcNetCost(0, int(amount));
         require(netCost > 0);
-        cost = _addFee(uint(netCost)); // when selling you receive less
+        cost = _addFee(uint(netCost));
         require(cost <= maxCost);
+        
+        qNo += int(amount);
+        
         collateralToken.transferFrom(msg.sender, address(this), cost);
         collateralToken.approve(address(conditionalTokens), uint(netCost));
         conditionalTokens.split(conditionId, collateralToken, uint(netCost));
         conditionalTokens.transfer(
             msg.sender,
             PositionLib.noId(collateralToken, conditionId),
-            uint(amount)
+            amount
         );
     }
 
@@ -102,11 +109,14 @@ abstract contract MarketMaker is Owned(msg.sender) {
         require(netCost < 0);
         payout = _subFee(uint(-netCost));
         require(payout >= minPayout);
+        
+        qYes -= int(amount);
+        
         conditionalTokens.transferFrom(
             msg.sender,
             address(this), 
             PositionLib.yesId(collateralToken, conditionId), 
-            uint(amount)
+            amount
         );
         conditionalTokens.merge(conditionId, collateralToken, uint(-netCost));
         collateralToken.transfer(msg.sender, payout);
@@ -123,6 +133,9 @@ abstract contract MarketMaker is Owned(msg.sender) {
         require(netCost < 0);
         payout = _subFee(uint(-netCost));
         require(payout >= minPayout);
+        
+        qNo -= int(amount);
+        
         conditionalTokens.transferFrom(
             msg.sender, 
             address(this), 
@@ -160,5 +173,5 @@ abstract contract MarketMaker is Owned(msg.sender) {
         return amount - feeAmount;
     }
 
-    function calcNetCost(int yesAmount, int noAmount) public virtual returns (int netCost);
+    function calcNetCost(int yesAmount, int noAmount) public view virtual returns (int netCost);
 }

@@ -9,10 +9,9 @@ import {
 } from "solmate/utils/SignedWadMath.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
-import {PositionLib} from "./libraries/PositionLib.sol";
-import {MarketMaker} from "./MarketMaker.sol";
+import {MarketMaker}       from "./MarketMaker.sol";
 import {ConditionalTokens} from "./ConditionalTokens.sol";
-import {ConditionId} from "./interfaces/IConditionalTokens.sol";
+import {ConditionId}       from "./interfaces/IConditionalTokens.sol";
 
 contract LS_LMSR_MarketMaker is MarketMaker {
     // b = alpha * funding. Higher alpha more liquid market
@@ -31,7 +30,7 @@ contract LS_LMSR_MarketMaker is MarketMaker {
         alpha = _alpha;
     }
 
-    // Cost = b * ln(exp(yesAmount / b) + exp(noAmount / b))
+    // Cost = b * ln(exp(qYes / b) + exp(qNo / b))
     // NetCost = Cost(after) - Cost(before)
     function calcNetCost(
         int yesAmount, 
@@ -44,15 +43,6 @@ contract LS_LMSR_MarketMaker is MarketMaker {
     {
         int b = int(alpha * funding / 1e18);
         require(b > 0);
-
-        int qYes = -int(conditionalTokens.balanceOf(
-            address(this),
-            PositionLib.yesId(collateralToken, conditionId)
-        ));
-        int qNo  = -int(conditionalTokens.balanceOf(
-            address(this),
-            PositionLib.noId(collateralToken, conditionId)
-        ));
 
         int costBefore = _costFunction(qYes, qNo, b);
         int costAfter  = _costFunction(qYes + yesAmount, qNo + noAmount, b);
@@ -86,16 +76,6 @@ contract LS_LMSR_MarketMaker is MarketMaker {
     {
         int b = int(alpha * funding / 1e18);
         if (b <= 0) return 0.5e18; // default to 50%
-
-        int qYes = -int(conditionalTokens.balanceOf(
-            address(this),
-            PositionLib.yesId(collateralToken, conditionId)
-        ));
-
-        int qNo = -int(conditionalTokens.balanceOf(
-            address(this),
-            PositionLib.noId(collateralToken, conditionId)
-        ));
 
         int maxQ   = qYes > qNo ? qYes : qNo;
         int offset = wadDiv(maxQ, b);
