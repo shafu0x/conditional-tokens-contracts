@@ -16,47 +16,27 @@ abstract contract MarketMaker is Owned(msg.sender) {
     uint              public funding;
     ConditionId       public conditionId;
 
-    function changeFunding(int fundingChange) 
-        public 
+    function addFunding(uint amount) 
+        external 
+        onlyOwner
     {
-        require(fundingChange != 0);
-        // adding funding
-        if (fundingChange > 0) {
-            require(
-                collateralToken.transferFrom(
-                    msg.sender,
-                    address(this),
-                    uint(fundingChange)
-                )
-            );
-            require(
-                collateralToken.approve(
-                    address(conditionalTokens),
-                    uint(fundingChange)
-                )
-            );
-            conditionalTokens.split(
-                conditionId,
-                collateralToken,
-                uint(fundingChange)
-            );
-            funding += uint(fundingChange);
-        // removing funding
-        } else {
-            conditionalTokens.merge(
-                conditionId,
-                collateralToken,
-                uint(-fundingChange)
-            );
-            funding -= uint(-fundingChange);
-            require(
-                collateralToken.transfer(
-                    owner,
-                    uint(-fundingChange)
-                )
-            );
-        }
-    } 
+        require(amount > 0);
+        collateralToken.transferFrom(msg.sender, address(this), amount);
+        collateralToken.approve(address(conditionalTokens), amount);
+        conditionalTokens.split(conditionId, collateralToken, amount);
+        funding += amount;
+    }
+
+    function removeFunding(uint amount) 
+        external 
+        onlyOwner
+    {
+        require(amount > 0);
+        collateralToken.transfer(msg.sender, amount);
+        collateralToken.approve(address(conditionalTokens), amount);
+        conditionalTokens.merge(conditionId, collateralToken, amount);
+        funding -= amount;
+    }
 
     function buyYes(
         uint amount,
