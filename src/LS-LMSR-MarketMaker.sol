@@ -14,7 +14,7 @@ import {ConditionalTokens} from "./ConditionalTokens.sol";
 import {ConditionId}       from "./interfaces/IConditionalTokens.sol";
 
 contract LS_LMSR_MarketMaker is MarketMaker {
-    // b = alpha * funding. Higher alpha more liquid market
+    // LS-LMSR: b = alpha * (qYes + qNo). Liquidity grows with trading.
     uint public alpha;
 
     constructor(
@@ -32,6 +32,7 @@ contract LS_LMSR_MarketMaker is MarketMaker {
 
     // Cost = b * ln(exp(qYes / b) + exp(qNo / b))
     // NetCost = Cost(after) - Cost(before)
+    // LS-LMSR: b = alpha * totalOutstanding (liquidity grows with trading)
     function calcNetCost(
         int yesAmount, 
         int noAmount
@@ -41,13 +42,30 @@ contract LS_LMSR_MarketMaker is MarketMaker {
         override 
         returns (int netCost) 
     {
-        int b = int(alpha * funding / 1e18);
+        int b = _b(qYes + yesAmount, qNo + noAmount);
         require(b > 0);
 
         int costBefore = _costFunction(qYes, qNo, b);
         int costAfter  = _costFunction(qYes + yesAmount, qNo + noAmount, b);
 
         return costAfter - costBefore;
+    }
+
+    function _b(
+        int newQYes, 
+        int newQNo
+    ) 
+        internal 
+        view 
+        returns (int b) 
+    {
+        int totalQ = newQYes + newQNo;
+        
+        if (totalQ > 0) {
+            b = int(alpha) * totalQ / 1e18;
+        } else {
+            b = int(alpha * funding / 1e18);
+        }
     }
 
     function _costFunction(
@@ -74,7 +92,7 @@ contract LS_LMSR_MarketMaker is MarketMaker {
         view 
         returns (uint)
     {
-        int b = int(alpha * funding / 1e18);
+        int b = _b(qYes, qNo);
         if (b <= 0) return 0.5e18; // default to 50%
 
         int maxQ   = qYes > qNo ? qYes : qNo;

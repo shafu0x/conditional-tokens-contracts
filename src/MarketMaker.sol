@@ -44,10 +44,11 @@ abstract contract MarketMaker is Owned(msg.sender) {
         onlyOwner
     {
         require(amount > 0);
-        collateralToken.transfer(msg.sender, amount);
-        collateralToken.approve(address(conditionalTokens), amount);
+        require(amount <= funding);
+        
         conditionalTokens.merge(conditionId, collateralToken, amount);
         funding -= amount;
+        collateralToken.transfer(msg.sender, amount);
     }
 
     function buyYes(
@@ -146,9 +147,17 @@ abstract contract MarketMaker is Owned(msg.sender) {
         collateralToken.transfer(msg.sender, payout);
     }
 
-    function claimFees()
-        external
-        onlyOwner
+    function setFee(uint _fee) 
+        external 
+        onlyOwner 
+    {
+        require(_fee <= 0.1e18); // max 10%
+        fee = _fee;
+    }
+
+    function claimFees() 
+        external 
+        onlyOwner 
     {
         uint amount = accumulatedFees;
         accumulatedFees = 0;
